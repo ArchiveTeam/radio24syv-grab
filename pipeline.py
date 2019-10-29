@@ -48,7 +48,7 @@ if StrictVersion(seesaw.__version__) < StrictVersion('0.10.3'):
 # 2. prints the required version string
 WGET_LUA = find_executable(
     'Wget+Lua',
-    ['GNU Wget 1.14.lua.20130523-9a5c', 'GNU Wget 1.14.lua.20160530-955376b'],
+    ['GNU Wget 1.14.lua.20130523-9a5c', 'GNU Wget 1.14.lua.20160530-955376b', 'GNU Wget 1.20.3-at-lua'],
     [
         './wget-lua',
         './wget-lua-warrior',
@@ -69,11 +69,12 @@ if not WGET_LUA:
 #
 # Update this each time you make a non-cosmetic change.
 # It will be added to the WARC files and reported to the tracker.
-VERSION = '20190508.01'
-USER_AGENT = 'ArchiveTeam'
-TRACKER_ID = 'sketch-static'
-#TRACKER_HOST = 'tracker-test.ddns.net'
-TRACKER_HOST = 'localhost'
+VERSION = '20191029.00'
+USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.36'
+TRACKER_ID = 'radio24syv'
+TRACKER_HOST = 'tracker-test.ddns.net'  
+#TRACKER_HOST = 'localhost'  #dev | #prod
+JOBS_ROOT = 'https://raw.githubusercontent.com/marked/radio24syv-items/master/'
 
 ###########################################################################
 # This section defines project-specific tasks.
@@ -139,62 +140,6 @@ class PrepareDirectories(SimpleTask):
         open('%(item_dir)s/%(warc_file_base)s_data.txt' % item, 'w').close()
 
 
-class Deduplicate(SimpleTask):
-    def __init__(self):
-        SimpleTask.__init__(self, 'Deduplicate')
-
-    def process(self, item):
-        digests = {}
-        input_filename = '%(item_dir)s/%(warc_file_base)s.warc.gz' % item
-        output_filename = '%(item_dir)s/%(warc_file_base)s-deduplicated.warc.gz' % item
-        with open(input_filename, 'rb') as f_in, \
-                open(output_filename, 'wb') as f_out:
-            writer = WARCWriter(filebuf=f_out, gzip=True)
-            for record in ArchiveIterator(f_in):
-                url = record.rec_headers.get_header('WARC-Target-URI')
-                if url is not None and url.startswith('<'):
-                    url = re.search('^<(.+)>$', url).group(1)
-                    record.rec_headers.replace_header('WARC-Target-URI', url)
-                if record.rec_headers.get_header('WARC-Type') == 'response':
-                    digest = record.rec_headers.get_header('WARC-Payload-Digest')
-                    if digest in digests:
-                        writer.write_record(
-                            self._record_response_to_revisit(writer, record,
-                                                             digests[digest])
-                        )
-                    else:
-                        digests[digest] = (
-                            record.rec_headers.get_header('WARC-Record-ID'),
-                            record.rec_headers.get_header('WARC-Date'),
-                            record.rec_headers.get_header('WARC-Target-URI')
-                        )
-                        writer.write_record(record)
-                elif record.rec_headers.get_header('WARC-Type') == 'warcinfo':
-                    record.rec_headers.replace_header('WARC-Filename', output_filename)
-                    writer.write_record(record)
-                else:
-                    writer.write_record(record)
-
-    def _record_response_to_revisit(self, writer, record, duplicate):
-        warc_headers = record.rec_headers
-        warc_headers.replace_header('WARC-Refers-To', duplicate[0])
-        warc_headers.replace_header('WARC-Refers-To-Date', duplicate[1])
-        warc_headers.replace_header('WARC-Refers-To-Target-URI', duplicate[2])
-        warc_headers.replace_header('WARC-Type', 'revisit')
-        warc_headers.replace_header('WARC-Truncated', 'length')
-        warc_headers.replace_header('WARC-Profile',
-                                    'http://netpreserve.org/warc/1.0/' \
-                                    'revisit/identical-payload-digest')
-        warc_headers.remove_header('WARC-Block-Digest')
-        warc_headers.remove_header('Content-Length')
-        return writer.create_warc_record(
-            record.rec_headers.get_header('WARC-Target-URI'),
-            'revisit',
-            warc_headers=warc_headers,
-            http_headers=record.http_headers
-        )
-
-
 class MoveFiles(SimpleTask):
     def __init__(self):
         SimpleTask.__init__(self, 'MoveFiles')
@@ -203,12 +148,8 @@ class MoveFiles(SimpleTask):
         if os.path.exists('%(item_dir)s/%(warc_file_base)s.warc' % item):
             raise Exception('Please compile wget with zlib support!')
 
-        #os.rename('%(item_dir)s/%(warc_file_base)s-deduplicated.warc.gz' % item,
-        #    '%(data_dir)s/%(warc_file_base)s-deduplicated.warc.gz' % item)
         os.rename('%(item_dir)s/%(warc_file_base)s.warc.gz' % item,
                   '%(data_dir)s/%(warc_file_base)s.warc.gz' % item)
-        os.rename('%(item_dir)s/%(warc_file_base)s_data.txt' % item,
-                  '%(data_dir)s/%(warc_file_base)s_data.txt' % item)
 
         shutil.rmtree('%(item_dir)s' % item)
 
@@ -220,7 +161,7 @@ def get_hash(filename):
 
 CWD = os.getcwd()
 PIPELINE_SHA1 = get_hash(os.path.join(CWD, 'pipeline.py'))
-LUA_SHA1 = get_hash(os.path.join(CWD, 'sketch-static.lua'))
+LUA_SHA1 = get_hash(os.path.join(CWD, 'radio24syv.lua'))
 
 
 def stats_id_function(item):
@@ -242,25 +183,25 @@ class WgetArgs(object):
             WGET_LUA,
             '-U', USER_AGENT,
             '-nv',
-            '--lua-script', 'sketch-static.lua',
+            '--lua-script', 'radio24syv.lua',
             '-o', ItemInterpolation('%(item_dir)s/wget.log'),
             '--no-check-certificate',
             '--output-document', ItemInterpolation('%(item_dir)s/wget.tmp'),
             '--truncate-output',
             '-e', 'robots=off',
             '--rotate-dns',
-            '--recursive', '--level=inf',
-            '--no-parent',
-            '--page-requisites',
+            #'--recursive', '--level=inf',
+            #'--no-parent',
+            #'--page-requisites',
             '--timeout', '30',
-            '--tries', 'inf',
-            '--domains', 'sketch.sonymobile.com,sketch-cloud-storage.s3.amazonaws.com',
+            #'--tries', 'inf',
+            #'--domains', 'sketch.sonymobile.com,sketch-cloud-storage.s3.amazonaws.com',
             '--span-hosts',
             '--waitretry', '30',
             '--warc-file', ItemInterpolation('%(item_dir)s/%(warc_file_base)s'),
             '--warc-header', 'operator: Archive Team',
-            '--warc-header', 'sketch-dld-script-version: ' + VERSION,
-            '--warc-header', ItemInterpolation('sketches-created-on: %(item_value)s')
+            '--warc-header', 'radio24syv-dld-script-version: ' + VERSION,
+            #'--warc-header', ItemInterpolation('sketches-created-on: %(item_value)s') #TODO
         ]
         
         item_name = item['item_name']
@@ -271,13 +212,16 @@ class WgetArgs(object):
 
         http_client = httpclient.HTTPClient()
 
-        if item_type == 'sketches' or item_type == 'tests':
-            r = http_client.fetch('https://raw.githubusercontent.com/marked/sketch-items/master/' + item_type + "/" + item_value, method='GET')
+        if item_type == 'item':
+            job_url = JOBS_ROOT + item_value
+            print("J> " + job_url)
+            r = http_client.fetch(job_url, method='GET')
             for s in r.body.decode('utf-8', 'ignore').splitlines():
-                s = s.strip()
+                s = "http://httpbin.org/status/302" #+ s.strip()
+                print("T> " + s)
                 if len(s) == 0:
                     continue
-                wget_args.append('https://storage.sketch.sonymobile.com/feed/{}/image'.format(s))
+                wget_args.append(s)
         else:
             raise Exception('Unknown item')
 
@@ -298,11 +242,11 @@ class WgetArgs(object):
 # This will be shown in the warrior management panel. The logo should not
 # be too big. The deadline is optional.
 project = Project(
-    title='sketch',
+    title='radio24syv',
     project_html='''
-        <img class="project-logo" alt="Project logo" src="https://www.archiveteam.org/images/0/01/Sketch-logo.png" height="50px" title=""/>
-        <h2>sketch.sonymobile.com <span class="links"><a href="https://sketch.sonymobile.com/">Website</a> &middot; <a href="http://%s/%s/">Leaderboard</a></span></h2>
-        <p>Archiving everything from Sony Sketch.</p>
+        <img class="project-logo" alt="Project logo" src="https://www.archiveteam.org/images/2/22/Radio24syv.png" height="50px" title=""/>
+        <h2>Radio24syv $middot; <class="links"><a href="https://www.24syv.dk/">Website</a> &middot; <a href="http://%s/%s/">Leaderboard</a></span></h2>
+        <p>Archiving audio from radio24syv archive</p>
     ''' % (TRACKER_HOST, TRACKER_ID)
 )
 
@@ -310,11 +254,11 @@ pipeline = Pipeline(
     CheckIP(),
     GetItemFromTracker('http://%s/%s' % (TRACKER_HOST, TRACKER_ID), downloader,
         VERSION),
-    PrepareDirectories(warc_prefix='sketch'),
+    PrepareDirectories(warc_prefix='radio24syv'),
     WgetDownload(
         WgetArgs(),
         max_tries=1,
-        accept_on_exit_code=[0, 4, 8],
+        accept_on_exit_code=[0],
         env={
             'item_dir': ItemValue('item_dir'),
             'item_value': ItemValue('item_value'),
@@ -327,7 +271,6 @@ pipeline = Pipeline(
         file_groups={
             'data': [
                 ItemInterpolation('%(item_dir)s/%(warc_file_base)s.warc.gz')
-                #ItemInterpolation('%(item_dir)s/%(warc_file_base)s-deduplicated.warc.gz')
             ]
         },
         id_function=stats_id_function,
@@ -342,7 +285,6 @@ pipeline = Pipeline(
             version=VERSION,
             files=[
                 ItemInterpolation("%(data_dir)s/%(warc_file_base)s.warc.gz"),
-                ItemInterpolation("%(data_dir)s/%(warc_file_base)s_data.txt")
             ],
             rsync_target_source_path=ItemInterpolation("%(data_dir)s/"),
             rsync_extra_args=[

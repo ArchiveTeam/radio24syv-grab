@@ -14,7 +14,7 @@ for ignore in io.open("ignore-list", "r"):lines() do
   downloaded[ignore] = true
 end
 
-local resp_codes_file = io.open(item_dir..'/'..warc_file_base..'_data.txt', 'w')
+--local resp_codes_file = io.open(item_dir..'/'..warc_file_base..'_data.txt', 'w')
 
 -----------------------------------------------------------------------------------------------------------------------
 
@@ -24,6 +24,7 @@ wget.callbacks.httploop_result = function(url, err, http_stat)
   url_count = url_count + 1
   io.stdout:write(url_count .. "=" .. status_code .. " " .. url["url"] .. "  \n")
   io.stdout:flush()
+  os.execute("sleep 1")
 
   if code_counts[status_code] == nil then
     code_counts[status_code] = 1
@@ -32,10 +33,8 @@ wget.callbacks.httploop_result = function(url, err, http_stat)
   end
 
   -- Expected results
-  if (string.match(url["host"], "^storage%.sketch%.sonymobile%.com") and status_code == 307) or 
-     (string.match(url["host"], "^storage%.sketch%.sonymobile%.com") and status_code == 404) or
-     (string.match(url["host"], "^sketch[-]cloud[-]storage%.s3%.amazonaws%.com") and status_code == 200) then
-    resp_codes_file:write(status_code .. " " .. url["url"] .. "\n")
+  if (status_code == 200) then
+    --resp_codes_file:write(status_code .. " " .. url["url"] .. "\n")
     return wget.actions.NOTHING
   end
 
@@ -47,7 +46,7 @@ end
 -----------------------------------------------------------------------------------------------------------------------
 
 wget.callbacks.before_exit = function(exit_status, exit_status_string)
-  resp_codes_file:close()
+  --resp_codes_file:close()
   io.stdout:write(table.show(code_counts,'\nResponse Code Frequency'))
   io.stdout:flush()
   if abortgrab == true then

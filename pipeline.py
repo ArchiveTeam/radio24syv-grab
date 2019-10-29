@@ -217,7 +217,7 @@ class WgetArgs(object):
             print("J> " + job_url)
             r = http_client.fetch(job_url, method='GET')
             for s in r.body.decode('utf-8', 'ignore').splitlines():
-                s = "http://httpbin.org/status/302" #+ s.strip()
+                s = s.strip()
                 print("T> " + s)
                 if len(s) == 0:
                     continue

@@ -72,9 +72,8 @@ if not WGET_LUA:
 VERSION = '20191029.00'
 USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.36'
 TRACKER_ID = 'radio24syv'
-TRACKER_HOST = 'tracker-test.ddns.net'  
-#TRACKER_HOST = 'localhost'  #dev | #prod
-JOBS_ROOT = 'https://raw.githubusercontent.com/marked/radio24syv-items/master/'
+TRACKER_HOST = 'tracker.archiveteam.org'  #dev | #prod
+JOBS_ROOT = 'https://raw.githubusercontent.com/ArchiveTeam/radio24syv-items/master/'
 
 ###########################################################################
 # This section defines project-specific tasks.

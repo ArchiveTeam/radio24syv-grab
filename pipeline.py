@@ -194,13 +194,13 @@ class WgetArgs(object):
             #'--page-requisites',
             '--timeout', '30',
             #'--tries', 'inf',
-            #'--domains', 'sketch.sonymobile.com,sketch-cloud-storage.s3.amazonaws.com',
+            #'--domains', 'www.24syv.dk',
             '--span-hosts',
             '--waitretry', '30',
             '--warc-file', ItemInterpolation('%(item_dir)s/%(warc_file_base)s'),
             '--warc-header', 'operator: Archive Team',
             '--warc-header', 'radio24syv-dld-script-version: ' + VERSION,
-            #'--warc-header', ItemInterpolation('sketches-created-on: %(item_value)s') #TODO
+            #'--warc-header', ItemInterpolation('broadcast-on: %(item_value)s') #TODO
         ]
         
         item_name = item['item_name']

@@ -20,7 +20,7 @@ end
 
 math.randomseed( os.time() )
 local start_time = math.random(1,60) --prod 1min
-io.stdout:write('Dithered start - Sleeping...' .. start_time)
+io.stdout:write('Dithered start - Sleeping...' .. start_time .. "\n")
 io.stdout:flush()
 os.execute("sleep " .. start_time)
 

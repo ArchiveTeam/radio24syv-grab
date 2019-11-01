@@ -19,13 +19,6 @@ import string
 import re
 import random
 
-try:
-    import warcio
-    from warcio.archiveiterator import ArchiveIterator
-    from warcio.warcwriter import WARCWriter
-except:
-    raise Exception("Please install warc with 'sudo pip install warcio --upgrade'.")
-
 import seesaw
 from seesaw.externalprocess import WgetDownload
 from seesaw.pipeline import Pipeline

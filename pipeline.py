@@ -69,7 +69,7 @@ if not WGET_LUA:
 #
 # Update this each time you make a non-cosmetic change.
 # It will be added to the WARC files and reported to the tracker.
-VERSION = '20191031.02'
+VERSION = '20191101.01'
 USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.36'
 TRACKER_ID = 'radio24syv'
 TRACKER_HOST = 'tracker.archiveteam.org'  #dev | #prod
@@ -256,7 +256,7 @@ pipeline = Pipeline(
     PrepareDirectories(warc_prefix='radio24syv'),
     WgetDownload(
         WgetArgs(),
-        max_tries=1,
+        max_tries=3,
         accept_on_exit_code=[0],
         env={
             'item_dir': ItemValue('item_dir'),

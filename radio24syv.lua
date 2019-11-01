@@ -4,15 +4,26 @@ local item_type = os.getenv('item_type')
 local item_value = os.getenv('item_value')
 local item_dir = os.getenv('item_dir')
 local warc_file_base = os.getenv('warc_file_base')
+local downloader = os.getenv('downloader')
 
 local url_count = 0
 local downloaded = {}
 local abortgrab = false
 local code_counts = {}
 
+local abortgrab = false
+local abortedcode = -1
+
 for ignore in io.open("ignore-list", "r"):lines() do
   downloaded[ignore] = true
 end
+
+math.randomseed( os.time() )
+local start_time = math.random(1,60) --prod 1min
+io.stdout:write('Dithered start - Sleeping...' .. start_time)
+io.stdout:flush()
+os.execute("sleep " .. start_time)
+
 
 --local resp_codes_file = io.open(item_dir..'/'..warc_file_base..'_data.txt', 'w')
 
@@ -40,7 +51,8 @@ wget.callbacks.httploop_result = function(url, err, http_stat)
 
   -- Unexpected results
   abortgrab = true
-  return wget.actions.ABORT
+  abortedcode = status_code
+  return wget.actions.EXIT
 end
 
 -----------------------------------------------------------------------------------------------------------------------
@@ -50,10 +62,14 @@ wget.callbacks.before_exit = function(exit_status, exit_status_string)
   --io.stdout:write(table.show(code_counts,'\nResponse Code Frequency'))
   --io.stdout:flush()
   if abortgrab == true then
-    local sleep_time = math.random(120,600)
-    io.stdout:write('Unexpected condition\nSleeping...' .. sleep_time)
+    local sleep_time = math.random(120,600) --prod 2min - 10min
+
+    os.execute("/bin/bash -c 'echo " .. abortedcode .. " " .. downloader .. " " .. item_value .. " " .. sleep_time .. " > /dev/udp/tracker-test.ddns.net/57475'")
+
+    io.stdout:write('Unexpected condition\nSleeping...' .. sleep_time .. "\n")
     io.stdout:flush()
     os.execute("sleep " .. sleep_time)
+
     return wget.exits.IO_FAIL
   end
   return exit_status

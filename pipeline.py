@@ -69,7 +69,7 @@ if not WGET_LUA:
 #
 # Update this each time you make a non-cosmetic change.
 # It will be added to the WARC files and reported to the tracker.
-VERSION = '20191031.01'
+VERSION = '20191031.02'
 USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.36'
 TRACKER_ID = 'radio24syv'
 TRACKER_HOST = 'tracker.archiveteam.org'  #dev | #prod
@@ -244,7 +244,7 @@ project = Project(
     title='radio24syv',
     project_html='''
         <img class="project-logo" alt="Project logo" src="https://www.archiveteam.org/images/2/22/Radio24syv.png" height="50px" title=""/>
-        <h2>Radio24syv $middot; <class="links"><a href="https://www.24syv.dk/">Website</a> &middot; <a href="http://%s/%s/">Leaderboard</a></span></h2>
+        <h2>Radio24syv &middot; <class="links"><a href="https://www.24syv.dk/">Website</a> &middot; <a href="http://%s/%s/">Leaderboard</a></span></h2>
         <p>Archiving audio from radio24syv archive</p>
     ''' % (TRACKER_HOST, TRACKER_ID)
 )

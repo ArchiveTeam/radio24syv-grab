@@ -50,10 +50,10 @@ wget.callbacks.before_exit = function(exit_status, exit_status_string)
   --io.stdout:write(table.show(code_counts,'\nResponse Code Frequency'))
   --io.stdout:flush()
   if abortgrab == true then
-    --local sleep_time = math.random(120,600)
-    --io.stdout:write('Unexpected condition\nSleeping...' .. sleep_time)
-    --io.stdout:flush()
-    --os.execute("sleep " .. sleep_time)
+    local sleep_time = math.random(120,600)
+    io.stdout:write('Unexpected condition\nSleeping...' .. sleep_time)
+    io.stdout:flush()
+    os.execute("sleep " .. sleep_time)
     return wget.exits.IO_FAIL
   end
   return exit_status

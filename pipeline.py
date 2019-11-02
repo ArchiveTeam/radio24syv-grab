@@ -16,8 +16,6 @@ import subprocess
 import sys
 import time
 import string
-import re
-import random
 
 import seesaw
 from seesaw.externalprocess import WgetDownload
@@ -25,12 +23,8 @@ from seesaw.pipeline import Pipeline
 from seesaw.project import Project
 from seesaw.util import find_executable
 
-from tornado import httpclient
-
-
-# check the seesaw version
-if StrictVersion(seesaw.__version__) < StrictVersion('0.10.3'):
-    raise Exception('This pipeline needs seesaw version 0.10.3 or higher.')
+if StrictVersion(seesaw.__version__) < StrictVersion('0.8.5'):
+    raise Exception('This pipeline needs seesaw version 0.8.5 or higher.')
 
 
 ###########################################################################
@@ -41,7 +35,7 @@ if StrictVersion(seesaw.__version__) < StrictVersion('0.10.3'):
 # 2. prints the required version string
 WGET_LUA = find_executable(
     'Wget+Lua',
-    ['GNU Wget 1.14.lua.20130523-9a5c', 'GNU Wget 1.14.lua.20160530-955376b', 'GNU Wget 1.20.3-at-lua'],
+    ['GNU Wget 1.14.lua.20130523-9a5c', 'GNU Wget 1.14.lua.20160530-955376b'],
     [
         './wget-lua',
         './wget-lua-warrior',
@@ -62,11 +56,11 @@ if not WGET_LUA:
 #
 # Update this each time you make a non-cosmetic change.
 # It will be added to the WARC files and reported to the tracker.
-VERSION = '20191101.04'
+VERSION = '20191102.01'
 USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.36'
 TRACKER_ID = 'radio24syv'
-TRACKER_HOST = 'tracker.archiveteam.org'  #dev | #prod
-JOBS_ROOT = 'https://raw.githubusercontent.com/marked/radio24syv-items/master/'
+TRACKER_HOST = 'tracker.archiveteam.org'
+
 
 ###########################################################################
 # This section defines project-specific tasks.
@@ -115,9 +109,7 @@ class PrepareDirectories(SimpleTask):
     def process(self, item):
         item_name = item['item_name']
         escaped_item_name = item_name.replace(':', '_').replace('/', '_').replace('~', '_')
-        #item_hash = hashlib.sha1(item_name.encode('utf-8')).hexdigest()
-        item_hash = escaped_item_name
-        dirname = '/'.join((item['data_dir'], item_hash))
+        dirname = '/'.join((item['data_dir'], escaped_item_name))
 
         if os.path.isdir(dirname):
             shutil.rmtree(dirname)
@@ -125,23 +117,18 @@ class PrepareDirectories(SimpleTask):
         os.makedirs(dirname)
 
         item['item_dir'] = dirname
-        item['warc_file_base'] = '%s-%s-%s' % (self.warc_prefix, item_hash,
+        item['warc_file_base'] = '%s-%s-%s' % (self.warc_prefix, escaped_item_name[:50],
             time.strftime('%Y%m%d-%H%M%S'))
 
-        open('%(item_dir)s/%(warc_file_base)s.warc.gz' % item, 'w').close()
-        open('%(item_dir)s/%(warc_file_base)s_data.txt' % item, 'w').close()
-
+        open('%(item_dir)s/%(warc_file_base)s.warc' % item, 'w').close()
 
 class MoveFiles(SimpleTask):
     def __init__(self):
         SimpleTask.__init__(self, 'MoveFiles')
 
     def process(self, item):
-        if os.path.exists('%(item_dir)s/%(warc_file_base)s.warc' % item):
-            raise Exception('Please compile wget with zlib support!')
-
         os.rename('%(item_dir)s/%(warc_file_base)s.warc.gz' % item,
-                  '%(data_dir)s/%(warc_file_base)s.warc.gz' % item)
+              '%(data_dir)s/%(warc_file_base)s.warc.gz' % item)
 
         shutil.rmtree('%(item_dir)s' % item)
 
@@ -150,14 +137,11 @@ def get_hash(filename):
     with open(filename, 'rb') as in_file:
         return hashlib.sha1(in_file.read()).hexdigest()
 
-
 CWD = os.getcwd()
 PIPELINE_SHA1 = get_hash(os.path.join(CWD, 'pipeline.py'))
 LUA_SHA1 = get_hash(os.path.join(CWD, 'radio24syv.lua'))
 
-
 def stats_id_function(item):
-    # NEW for 2014! Some accountability hashes and stats.
     d = {
         'pipeline_hash': PIPELINE_SHA1,
         'lua_hash': LUA_SHA1,
@@ -168,13 +152,12 @@ def stats_id_function(item):
 
 
 class WgetArgs(object):
-    post_chars = string.digits + string.ascii_lowercase
-
     def realize(self, item):
         wget_args = [
             WGET_LUA,
             '-U', USER_AGENT,
             '-nv',
+            '--no-cookies',
             '--lua-script', 'radio24syv.lua',
             '-o', ItemInterpolation('%(item_dir)s/wget.log'),
             '--no-check-certificate',
@@ -182,50 +165,39 @@ class WgetArgs(object):
             '--truncate-output',
             '-e', 'robots=off',
             '--rotate-dns',
-            #'--recursive', '--level=inf',
-            #'--no-parent',
-            #'--page-requisites',
+            '--recursive', '--level=inf',
+            '--no-parent',
+            '--page-requisites',
             '--timeout', '30',
-            #'--tries', 'inf',
-            #'--domains', 'www.24syv.dk',
+            '--tries', 'inf',
+            '--domains', '24syv.com',
             '--span-hosts',
             '--waitretry', '30',
             '--warc-file', ItemInterpolation('%(item_dir)s/%(warc_file_base)s'),
             '--warc-header', 'operator: Archive Team',
             '--warc-header', 'radio24syv-dld-script-version: ' + VERSION,
-            #'--warc-header', ItemInterpolation('broadcast-on: %(item_value)s') #TODO
+            '--warc-header', ItemInterpolation('radio24syv-item: %(item_name)s'),
         ]
-        
+
         item_name = item['item_name']
+        assert ':' in item_name
         item_type, item_value = item_name.split(':', 1)
-        
+
         item['item_type'] = item_type
         item['item_value'] = item_value
 
-        http_client = httpclient.HTTPClient()
-
-        if item_type == 'item':
-            job_url = JOBS_ROOT + item_value
-            print("J> " + job_url)
-            r = http_client.fetch(job_url, method='GET')
-            for s in r.body.decode('utf-8', 'ignore').splitlines():
-                s = s.strip()
-                print("T> " + s)
-                if len(s) == 0:
-                    continue
-                wget_args.append(s)
+        if item_type == 'episode':
+            wget_args.append('https://api.radio24syv.dk/v2/podcasts/' + item_value)
         else:
             raise Exception('Unknown item')
 
-        http_client.close()
-        
         if 'bind_address' in globals():
             wget_args.extend(['--bind-address', globals()['bind_address']])
             print('')
             print('*** Wget will bind address at {0} ***'.format(
                 globals()['bind_address']))
             print('')
-            
+
         return realize(wget_args, item)
 
 ###########################################################################
@@ -249,14 +221,13 @@ pipeline = Pipeline(
     PrepareDirectories(warc_prefix='radio24syv'),
     WgetDownload(
         WgetArgs(),
-        max_tries=3,
-        accept_on_exit_code=[0],
+        max_tries=2,
+        accept_on_exit_code=[0, 4, 8],
         env={
             'item_dir': ItemValue('item_dir'),
             'item_value': ItemValue('item_value'),
             'item_type': ItemValue('item_type'),
             'warc_file_base': ItemValue('warc_file_base'),
-            'downloader': downloader
         }
     ),
     PrepareStatsForTracker(
@@ -269,17 +240,17 @@ pipeline = Pipeline(
         id_function=stats_id_function,
     ),
     MoveFiles(),
-    LimitConcurrent(NumberConfigValue(min=1, max=20, default="20",
-        name="shared:rsync_threads", title="Rsync threads",
-        description="The maximum number of concurrent uploads."),
+    LimitConcurrent(NumberConfigValue(min=1, max=20, default='2',
+        name='shared:rsync_threads', title='Rsync threads',
+        description='The maximum number of concurrent uploads.'),
         UploadWithTracker(
-            "http://%s/%s" % (TRACKER_HOST, TRACKER_ID),
+            'http://%s/%s' % (TRACKER_HOST, TRACKER_ID),
             downloader=downloader,
             version=VERSION,
             files=[
-                ItemInterpolation("%(data_dir)s/%(warc_file_base)s.warc.gz"),
+                ItemInterpolation('%(data_dir)s/%(warc_file_base)s.warc.gz')
             ],
-            rsync_target_source_path=ItemInterpolation("%(data_dir)s/"),
+            rsync_target_source_path=ItemInterpolation('%(data_dir)s/'),
             rsync_extra_args=[
                 "--sockopts=SO_SNDBUF=8388608,SO_RCVBUF=8388608", # 02:50 <Kenshin> the extra options should improve rsync speeds when the latency is higher
                 "--recursive",
@@ -289,11 +260,10 @@ pipeline = Pipeline(
                 "--no-compress",
                 "--compress-level=0"
             ]
-            ),
+        ),
     ),
     SendDoneToTracker(
         tracker_url='http://%s/%s' % (TRACKER_HOST, TRACKER_ID),
         stats=ItemValue('stats')
     )
 )
-

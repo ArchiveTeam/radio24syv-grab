@@ -145,6 +145,14 @@ wget.callbacks.get_urls = function(file, url, is_css, iri)
     if string.match(url, "^https?://api%.radio24syv%.dk/v2/podcasts/[0-9]+$") then
       local episode_id = string.match(url, "([0-9]+)$")
       local data = load_json_file(html)
+      if data["programInfo"] == nil
+          or data["slug"] == nil
+          or data["image"] == nil
+          or data["audioInfo"] == nil then
+        io.stdout:write("Bad API data.")
+        io.stdout:flush()
+        abortgrab = true
+      end
       check("https://www.24syv.dk/programmer/" .. data["programInfo"]["slug"] .. data["slug"])
       ids[data["image"]["src"]] = true
       check(data["image"]["src"])
